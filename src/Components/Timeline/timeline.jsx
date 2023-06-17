@@ -1,6 +1,5 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Bar } from "react-chartjs-2";
-// import Leaflet from "../Leaflet";
 import {
   BarElement,
   CategoryScale,
@@ -11,19 +10,82 @@ import {
   Tooltip,
 } from "chart.js";
 
-import { MapContainer, TileLayer } from "react-leaflet";
-
-// import {
-//   GoogleMap,
-//   Marker,
-//   Polyline,
-//   LoadScript,
-// } from "@react-google-maps/api";
-
+// AIzaSyA5uemAs2WR9KQkdVReA9VRcaZ8jA6ZLAM
+import GoogleMapReact from "google-map-react";
 import "./timeline.css";
-import "./leaflet.css";
+import axios from "axios";
 import graphimg from "../Images/graphimg.png";
+import { useState } from "react";
+
+const Polyline = React.memo(({ path }) => {
+  const renderPolylines = () => {
+    return path.map((point, index) => (
+      <polyline
+        key={index}
+        path={point}
+        options={{
+          strokeColor: "#FF0000",
+          strokeOpacity: 1.0,
+          strokeWeight: 2,
+        }}
+      />
+    ));
+  };
+
+  return renderPolylines();
+});
+
 const TimeLine = () => {
+  const [userdata, setUserdata] = useState([""]);
+  const [userpath, setUserpath] = useState([""]);
+  const [time, setTime] = useState([""]);
+  const [iddata, setIddata] = useState([""]);
+  const [selectedid, setSelectedid] = useState("");
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:4001/users")
+      .then((res) => res.json())
+      .then((data) => setUserdata(data))
+      .catch((err) => console.log(err));
+    fetch("http://localhost:4001/users/path")
+      .then((res) => res.json())
+      .then((data) => setUserpath(data))
+      .catch((err) => console.log(err));
+    fetch("http://localhost:4001/users/time")
+      .then((res) => res.json())
+      .then((data) => setTime(data))
+      .catch((err) => console.log(err));
+    fetch("http://localhost:4001/users/useriddata")
+      .then((res) => res.json())
+      .then((data) => setIddata(data))
+      .catch((err) => console.log(err));
+  }, []);
+  const handleUserdata = userdata.map((d, i) => {
+    // console.log("start", d);
+    // return (
+    //   <div>
+    //     <div>{d.id}</div>
+    //     <div>{d.userid}</div>
+    //     <div>{d.username}</div>
+    //     <div>{d.start}</div>
+    //     <div>{d.destination}</div>
+    //   </div>
+    // );
+  });
+  const handleTimeline = time.map((d, i) => {
+    // console.log("time", d);
+
+    return (
+      <div className="usertimeline">
+        <div className="timedata">Start Time : {d.start_time}</div>
+        <div className="timedata">Stop Time : {d.stop_time}</div>
+      </div>
+    );
+  });
+
+  // };
+
   const arrYear = [];
   const arrDate = [];
   const arrMonth = [
@@ -39,6 +101,18 @@ const TimeLine = () => {
     "October",
     "November",
     "December",
+    // { 1: "January" },
+    // { 2: "Feburary" },
+    // { 3: "March" },
+    // { 4: "April" },
+    // { 5: "May" },
+    // { 6: "June" },
+    // { 7: "July" },
+    // { 8: "August" },
+    // { 9: "September" },
+    // { 10: "October" },
+    // { 11: "November" },
+    // { 12: "December" },
   ];
   let currentYear = new Date().getFullYear();
   let currentDate = new Date().getDate();
@@ -63,10 +137,10 @@ const TimeLine = () => {
   const option = {
     responsive: true,
     plugins: {
-      legend: { position: "chartArea" },
+      // legend: { position: "chartArea" },
       title: {
         display: true,
-        text: "Modular Bar Chart",
+        text: "User Timeline",
       },
     },
   };
@@ -75,42 +149,95 @@ const TimeLine = () => {
     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
     datasets: [
       {
-        label: "Product A",
+        // label: "Product A",
         data: [20, 30, 40, 50, 60, 70],
         backgroundColor: "green",
       },
-      {
-        label: "Product B",
-        data: [15, 20, 25, 40, 45, 60],
-        backgroundColor: "blue",
-      },
     ],
   };
-  const containerStyle = {
-    width: "100%",
-    height: "400px",
+
+  // let path = [
+  //   {},
+  //   // { lat: 28.6138954, lng: 77.2090057 },
+  //   // { lat: 23.0216238, lng: 72.5797068 },
+  //   // { lat: 19.0785451, lng: 72.878176 },
+  // ];
+
+  //fetched userdata
+  let arrUser = [{ id: "", uname: "" }];
+  let uiddata = iddata.map((d) => {
+    // console.log("in iddata", d);
+    return { id: d.id, uname: d.user_name };
+  });
+  arrUser = [].concat(uiddata);
+
+  //uswerrid
+  const handleUserid = async (event) => {
+    const uid = event.target.value;
+    console.log(uid);
+    setSelectedid(uid);
+    await axios
+      .post("http://localhost:4001/users/userData", { uid })
+      .then((res) => console.log(res.data))
+      .catch((error) => {
+        console.error("Error fetching user data:", error);
+      });
   };
 
-  const center = {
-    lat: 28.70406,
-    lng: 77.102493,
+  //path
+  let path = [{ lat: "", lng: "" }];
+  let usrpath = userpath.map((d) => {
+    return { lat: d.latitude, lng: d.longitude };
+  });
+  path = [].concat(usrpath);
+
+  const intitialcenter = { lat: 20.39012149793167, lng: 72.90738269251017 };
+  // console.log("usepth", path);
+
+  const handleApiLoaded = (map, maps) => {
+    new maps.Polyline({
+      path: path,
+      strokeColor: "#FF0000",
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+      map: map,
+    });
+    path.map((x, i) => {
+      if (i % 2 !== 0) {
+        new maps.Marker({
+          position: x,
+          map: map,
+          options: {
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "blue",
+              fillOpacity: 1,
+              strokeWeight: 2,
+            },
+          },
+        });
+      } else {
+        new maps.Marker({
+          position: x,
+          map: map,
+          options: {
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "red",
+              fillOpacity: 1,
+              strokeWeight: 2,
+            },
+          },
+        });
+      }
+    });
   };
 
-  const path = [
-    { lat: 28.70406, lng: 77.102493 },
-    // { lat: 28.4670734, lng: 77.5137649 },
-    { lat: 23.0216238, lng: 72.5797068 },
-  ];
-
-  //leaflet
-
-  const position = [51.505, -0.09];
-
-  const polylinePositions = [
-    [37.7749, -122.4194],
-    [37.7749, -122.4014],
-    [37.7818, -122.4014],
-  ];
+  // const handleApiLoaded = (map, maps) => {
+  //   renderPolylines(map, maps);
+  // };
 
   return (
     <div>
@@ -121,19 +248,50 @@ const TimeLine = () => {
         </div>
       </div>
       <div className="main">
+        <div className="usercred">
+          <div className="userdropdown">
+            <select
+              name="usercredentials"
+              className="usercredential"
+              id="usercrd"
+              onChange={handleUserid}
+              value={selectedid}
+            >
+              <option value="">Select</option>
+              {arrUser.map((d) => {
+                return (
+                  <option key={d.id} value={d.id}>
+                    {d.uname}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
         <div className="container1">
           <div className="date">
             <div className="month">
               <select name="month" className="dateform" id="month">
                 {arrMonth.map((a) => {
-                  return <option selected={currentMonth}>{a}</option>;
+                  return (
+                    <option
+                      selected={currentMonth}
+                      className="monthname scroll"
+                    >
+                      {a}
+                    </option>
+                  );
                 })}
               </select>
             </div>
             <div className="year">
               <select name="yeardropdown" className="dateform" id="yeardrop">
                 {arrYear.map((a) => {
-                  return <option selected={currentYear}>{a}</option>;
+                  return (
+                    <option selected={currentYear} className="yrname scroll">
+                      {a}
+                    </option>
+                  );
                 })}
               </select>
             </div>
@@ -141,7 +299,11 @@ const TimeLine = () => {
             <div className="day">
               <select name="daydropdown" className="dateform" id="daydrop">
                 {arrDate.map((a) => {
-                  return <option selected={currentDate}>{a}</option>;
+                  return (
+                    <option selected={currentDate} className="datename scroll">
+                      {a}
+                    </option>
+                  );
                 })}
               </select>
             </div>
@@ -150,53 +312,38 @@ const TimeLine = () => {
             <img src={graphimg} alt="graphimg" />
           </div>
         </div>
-        <div className="graph">
-          <div className="graphhead">Graph</div>
-          <div className="graphimg">
-            <Bar options={option} data={data} className="graphdata" />
-          </div>
-        </div>
-        <div className="container2">
-          {/* <LoadScript googleMapsApiKey="AIzaSyCT1zlrTPeEW0ablyPx1r1oIRRkE4AMWy8">
-                <GoogleMap
-                  mapContainerStyle={containerStyle}
-                  center={center}
-                  zoom={10}
-                >
-                  <Polyline
-                    path={path}
-                    options={{ strokeColor: "#FF00f0", strokeOpacity: 1.0 }}
-                  />
-                  <Marker position={center} />
-                </GoogleMap>
-              </LoadScript> */}
 
-          {/* //leaflet */}
-          {/* <MapContainer
-                center={[37.7749, -122.4194]}
-                zoom={13}
-                style={{ height: "100vh", width: "900px" }}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution="Map data © OpenStreetMap contributors"
-                />
-              </MapContainer> */}
-          {/* <Leaflet position={position} /> */}
-          <MapContainer
-            center={[40.505, -100.09]}
-            zoom={13}
-            scrollWheelZoom={false}
+        <div className="container2">
+          <h1>Time Line Map</h1>
+        </div>
+        <div className="container3">
+          {/* AIzaSyA5uemAs2WR9KQkdVReA9VRcaZ8jA6ZLAM */}
+          <GoogleMapReact
+            bootstrapURLKeys={{
+              key: "AIzaSyA5uemAs2WR9KQkdVReA9VRcaZ8jA6ZLAM",
+            }}
+            defaultCenter={intitialcenter}
+            defaultZoom={10}
+            // yesIWantToUseGoogleMapApi={true}
+            yesIWantToUseGoogleMapApiInternals={true}
+            onGoogleApiLoaded={({ map, maps }) => handleApiLoaded(map, maps)}
           >
-            <TileLayer
-              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          </MapContainer>
+            <Polyline path={path} />
+          </GoogleMapReact>
         </div>
       </div>
       <div className="footer">
-        <div></div>
+        <div>
+          <div className="graph">
+            <div className="graphhead">Graph</div>
+            <div className="graphimg">
+              <Bar options={option} data={data} className="graphdata" />
+            </div>
+          </div>
+          <div className="timelinetxt">User Timeline</div>
+          <div className="userdata">{handleUserdata}</div>
+          <div className="timelinedata">{handleTimeline}</div>
+        </div>
       </div>
     </div>
   );
